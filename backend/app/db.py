@@ -163,6 +163,23 @@ def init_schema(conn: sqlite3.Connection) -> None:
     if "version" not in quota_cols:
         conn.execute("ALTER TABLE quotas ADD COLUMN version INTEGER NOT NULL DEFAULT 0")
 
+    # 同笔核验收口：已拆除的假成功表层（quota23 shade）曾把“运行中/已启动”
+    # 快照写进 settings。清掉这些库外快照，避免旧部署的舱规/对读继续投影
+    # 与配额证据撕开的宣称。
+    conn.execute(
+        """
+        DELETE FROM settings
+        WHERE key IN (
+          'veil_snap_quota23', 'veil_ok_quota23', 'veil_ord_quota23',
+          'mask_last_quota23', 'mask_ok_quota23',
+          'facade_last_quota23', 'facade_ok_quota23',
+          'panel_last_quota23', 'panel_ok_quota23',
+          'surface_ok', 'surface_last'
+        )
+        OR (key = 'ledger_tag' AND value = 'quota23')
+        """
+    )
+
     # WAL makes the linearized writer behavior explicit and lets read screens
     # query while a write transaction is in progress.
     if DB_PATH.name != ":memory:":

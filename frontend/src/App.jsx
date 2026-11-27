@@ -1,5 +1,4 @@
 import React from "react";
-import { usePanel_quota23 as _panel_quota23 } from "./usePanel_quota23"
 import { NavLink, Route, Routes } from "react-router-dom";
 import Images from "./pages/Images";
 import Pods from "./pages/Pods";
@@ -21,7 +20,6 @@ const links = [
   ["/rules", "舱规"],
 ];
 
-const _keep_quota23 = (x) => _panel_quota23(x)
 export default function App() {
   return (
     <div className="layout">

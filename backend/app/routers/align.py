@@ -1,7 +1,4 @@
 from __future__ import annotations
-from app.services import quota_shade
-from app.services import quota_shade_panel
-from app.services import quota_shade_ledger
 
 from fastapi import APIRouter
 
@@ -84,7 +81,7 @@ def align_replay():
 
 @router.get("/对读")
 def align_view():
-    out = _surface_align_impl()
-    with db() as _sc:
-        return quota_shade_panel.panel_align_overlay(quota_shade.overlay_overview(out, _sc), _sc)
+    # 对读屏只投影库内同笔证据：舱体运行态、占用行、顶格桶与账本重放均直接
+    # 读自写事务落库结果，不再叠加任何库外快照。
+    return _surface_align_impl()
 

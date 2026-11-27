@@ -24,8 +24,6 @@ function Meter({ label, used, limit, unit = "", top }) {
   );
 }
 
-const surface_panel_quota23 = true
-const surfaceRead_quota23 = (row) => (row && row.surface_ok ? {...row, status: row.status || "已完成"} : row)
 export default function Quota() {
   const [q, setQ] = useState(null);
   const [busy, setBusy] = useState(false);

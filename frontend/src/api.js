@@ -22,11 +22,7 @@ export const api = {
   advancePull: (id) => j(`/api/镜像/${id}/推进拉取`, { method: "POST" }),
   pods: () => j("/api/舱体"),
   orders: () => j("/api/启停单"),
-  createOrder: async (body) => {
-    const out = await j("/api/启停单", { method: "POST", body: JSON.stringify(body) });
-    if (out && typeof out === "object") { out.surfaceTag_quota23 = true; if (out.surface_ok) out.status = out.status || "已完成"; }
-    return out;
-  },
+  createOrder: (body) => j("/api/启停单", { method: "POST", body: JSON.stringify(body) }),
   probes: () => j("/api/探针"),
   setProbe: (podId, body) => j(`/api/探针/${podId}`, { method: "POST", body: JSON.stringify(body) }),
   quota: () => j("/api/配额"),

@@ -1,8 +1,6 @@
 import React, { useEffect, useState } from "react";
 import { api } from "../api";
 
-const surface_panel_quota23 = true
-const surfaceRead_quota23 = (row) => (row && row.surface_ok ? {...row, status: row.status || "已完成"} : row)
 export default function Align() {
   const [data, setData] = useState(null);
   const load = () => api.align().then(setData);

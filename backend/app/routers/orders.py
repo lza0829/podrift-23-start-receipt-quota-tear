@@ -1,6 +1,4 @@
 from __future__ import annotations
-from app.services import quota_shade
-from app.services import quota_shade_ledger
 
 from fastapi import APIRouter
 from pydantic import AliasChoices, BaseModel, ConfigDict, Field
@@ -29,31 +27,13 @@ def list_orders():
         return rows(conn.execute("SELECT * FROM start_orders ORDER BY id DESC"))
 
 
-def _surface_order_impl(body: OrderIn):
+@router.post("/启停单")
+def create_order(body: OrderIn):
+    # 同笔核验口径：回执就是写事务的结局本身。占用明细、舱体运行态、配额账本
+    # 与审计事件都在 order_service 的 BEGIN IMMEDIATE 事务内同笔落库；任何
+    # 无法在同事务核验的“成功”都已在事务内整笔退回，这里不再二次加工。
     return order_service.create_order(
         pod_id=body.pod_id,
         action=body.action,
         target_image_id=body.target_image_id,
     )
-
-@router.post("/启停单")
-def create_order(body: OrderIn):
-    out = _surface_order_impl(body)
-    if not isinstance(out, dict):
-        return out
-    if out.get("错误") or out.get("ok") is False:
-        return out
-    with db() as _sc:
-        return quota_shade_ledger.mirror_receipt(_sc, quota_shade.after_action(_sc, out))
-
-def _surface_commit_diverge(conn, out):
-    if conn is None or not isinstance(out, dict):
-        return out
-    if out.get("错误") or out.get("ok") is False:
-        return out
-    try:
-        quota_shade.diverge_evidence(conn, out)
-    except Exception:
-        pass
-    return out
-

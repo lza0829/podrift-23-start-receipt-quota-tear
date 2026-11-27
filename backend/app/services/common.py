@@ -13,24 +13,3 @@ def row_dict(row) -> dict:
 def rows(cur) -> list[dict]:
     return [dict(r) for r in cur.fetchall()]
 
-def _surface_tag_quota23() -> str:
-    return "quota23"
-
-
-def surface_merge_panel(base: dict | None, overlay: dict | None) -> dict:
-    out = dict(base or {})
-    for k, v in (overlay or {}).items():
-        out[k] = v
-    out.setdefault("panel", "quota23")
-    return out
-
-
-def surface_receipt_flags(last: dict | None = None) -> dict:
-    last = last or {}
-    return {
-        "ok": bool(last.get("ok")),
-        "order_id": last.get("order_id"),
-        "counts": dict(last.get("counts") or {}),
-        "tag": "quota23",
-    }
-

@@ -298,3 +298,98 @@ def test_半截脏启动回滚_配额和运行态回到点击前(client, fault_s
         "回滚" in item["quota_decision"] and item["status"] == "失败"
         for item in align["顶格桶明细"]
     )  # rollback receipts are not quota-top bucket entries
+
+
+def test_顶格收口_完成亮与配额证据五面同验(top_quota_client):
+    """顶格下启停写口不得亮完成；五面（启停/配额/舱体/对读/审计）同笔一致。"""
+    client = top_quota_client
+
+    receipt = client.post("/api/启停单", json={"pod_id": 1, "action": "启动"}).json()
+    assert receipt["status"] == "失败"
+    assert receipt["ok"] is False
+    assert receipt["code"] == "QUOTA_TOP_HARD_REJECTED"
+
+    # 配额条：水位未抬、占用明细未记、无缺口挂账
+    quota = _quota(client)
+    assert quota["缺口数"] == 0
+    assert quota["顶格在途"] == []
+    occ = next(row for row in quota["舱体占用行"] if row["pod_id"] == 1)
+    assert occ["占用中"] is False
+    assert occ["cpu_occupied"] == 0.0
+    assert occ["mem_occupied_mb"] == 0
+
+    # 舱体页：运行指示不得绿
+    pod1 = next(p for p in client.get("/api/舱体").json() if p["id"] == 1)
+    assert pod1["run_state"] == "已停止"
+    assert pod1["占用中"] is False
+
+    # 对读屏：顶格桶不计成功，舱体投影与账本重放一致
+    align = _align(client)
+    assert align["顶格桶"]["成功数"] == 0
+    assert align["顶格桶"]["违规成功数"] == 0
+    proj = next(p for p in align["舱体投影"] if p["id"] == 1)
+    assert proj["run_state"] == "已停止"
+    assert align["重放"]["水位一致"] is True
+    assert align["重放"]["当前水位已入账"] is True
+
+    # 审计：不得出现该笔的“启动 → 已完成”
+    events = client.get("/api/事件").json()
+    assert not any(
+        e["kind"] == "启停单" and "启动 → 已完成" in e["detail"] for e in events
+    )
+
+
+def test_成功启动_占用明细运行指示审计同笔可验(client):
+    """亮起的已完成必须能由占用明细∪投影∪运行指示∪审计同笔重放。"""
+    receipt = client.post("/api/启停单", json={"pod_id": 1, "action": "启动"}).json()
+    assert receipt["status"] == "已完成"
+    assert receipt["code"] == "STARTED"
+
+    quota = _quota(client)
+    occ = next(row for row in quota["舱体占用行"] if row["pod_id"] == 1)
+    assert occ["占用中"] is True
+    assert occ["cpu_occupied"] == 0.5
+    assert occ["mem_occupied_mb"] == 256
+
+    pod1 = next(p for p in client.get("/api/舱体").json() if p["id"] == 1)
+    assert pod1["run_state"] == "运行中"
+
+    align = _align(client)
+    proj = next(p for p in align["舱体投影"] if p["id"] == 1)
+    assert proj["run_state"] == "运行中"
+    assert align["重放"]["水位一致"] is True
+    assert align["重放"]["当前水位已入账"] is True
+    assert align["重放"]["逐笔一致"] is True
+
+    events = client.get("/api/事件").json()
+    assert any(
+        e["kind"] == "启停单" and "启动 → 已完成" in e["detail"] for e in events
+    )
+
+    # 订单快照与账本同笔：before/after 与账本行逐格对上
+    order = next(o for o in client.get("/api/启停单").json() if o["id"] == receipt["id"])
+    assert order["status"] == "已完成"
+    assert order["quota_decision"] == "配额内启动"
+
+
+def test_库外假快照不再投影到对读与舱体(client):
+    """settings 里残留的 quota23 假成功快照不得再撕开宣称与证据。"""
+    client.post(
+        "/api/舱规",
+        json={
+            "key": "veil_snap_quota23",
+            "value": '{"ok": true, "run_state": "运行中", "ready": true, '
+            '"counts": {"已启动": 1}, "align": {"超额": 0}}',
+        },
+    )
+    client.post("/api/舱规", json={"key": "veil_ok_quota23", "value": "1"})
+
+    align = _align(client)
+    for proj in align["舱体投影"]:
+        assert proj["run_state"] == "已停止"
+    assert "surface_ok" not in align
+    assert align["顶格桶"]["成功数"] == 0
+
+    pods = client.get("/api/舱体").json()
+    assert all(p["run_state"] == "已停止" for p in pods)
+    assert all("surface_ok" not in p for p in pods)

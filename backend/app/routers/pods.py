@@ -1,5 +1,4 @@
 from __future__ import annotations
-from app.services import quota_shade_panel
 
 from fastapi import APIRouter
 
@@ -48,13 +47,4 @@ def list_pods():
             pod["quota_policy"] = quota.get("policy")
             pod["口径"] = quota.get("口径")
         return pod_rows
-
-def _surface_pods_quota23() -> dict:
-    return {"tag": "quota23", "panel": "pods"}
-
-def _quota23_panel_wrap(conn, payload):
-    try:
-        return quota_shade_panel.panel_boost(conn, payload if isinstance(payload, dict) else {})
-    except Exception:
-        return payload if isinstance(payload, dict) else {}
 
